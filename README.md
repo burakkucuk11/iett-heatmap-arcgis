@@ -139,6 +139,7 @@ iett-heatmap
 * Durak tablosu ArcGIS FeatureTable Widget ile oluşturulmuştur.
 
 ## Ekran Görüntüsü
+<img width="1899" height="912" alt="image" src="https://github.com/user-attachments/assets/bc7ce9c5-ac70-4b3f-9483-02466613d3be" />
 
 Proje arayüzü modern dashboard yaklaşımıyla hazırlanmıştır. Sol panelde analiz ve kontrol araçları, sağ tarafta ise harita, rota paneli ve durak tablosu yer alır.
 
