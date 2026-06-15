@@ -1,0 +1,644 @@
+@import "@arcgis/core/assets/esri/themes/dark/main.css";
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background:
+    radial-gradient(circle at top left, rgba(253, 180, 98, 0.24), transparent 30%),
+    linear-gradient(135deg, #80B1D3 0%, #4d7fa3 48%, #142c43 100%);
+  color: #D9D9D9;
+  font-family: Inter, Arial, Helvetica, sans-serif;
+  overflow: hidden;
+}
+
+#app {
+  display: flex;
+  width: 100vw;
+  height: 100vh;
+}
+
+/* SOL PANEL - KOMPAKT */
+#sidebar {
+  width: 370px;
+  height: 100vh;
+  padding: 12px 14px;
+  background: rgba(16, 31, 47, 0.86);
+  backdrop-filter: blur(18px);
+  border-right: 1px solid rgba(255, 255, 255, 0.16);
+  box-shadow: 18px 0 55px rgba(0, 0, 0, 0.34);
+  z-index: 20;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/* Scrollbar daha şık */
+#sidebar::-webkit-scrollbar {
+  width: 6px;
+}
+
+#sidebar::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+#sidebar::-webkit-scrollbar-thumb {
+  background: rgba(253, 180, 98, 0.55);
+  border-radius: 999px;
+}
+
+/* BRAND */
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.logo {
+  width: 42px;
+  height: 42px;
+  border-radius: 13px;
+  background: linear-gradient(135deg, #FDB462 0%, #ff8f3c 100%);
+  color: #122232;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  font-weight: 950;
+  box-shadow: 0 10px 22px rgba(253, 180, 98, 0.28);
+}
+
+.brand h1 {
+  margin: 0;
+  color: #ffffff;
+  font-size: 21px;
+  line-height: 1.05;
+  letter-spacing: -0.5px;
+}
+
+.brand span {
+  display: block;
+  margin-top: 2px;
+  font-size: 10.5px;
+  color: rgba(217, 217, 217, 0.82);
+}
+
+/* KARTLAR */
+.hero-card,
+.legend-card,
+.control-card {
+  border-radius: 16px;
+  padding: 11px 12px;
+  margin-bottom: 8px;
+  background: rgba(255, 255, 255, 0.11);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  box-shadow: 0 12px 26px rgba(0, 0, 0, 0.16);
+}
+
+.eyebrow {
+  width: fit-content;
+  margin-bottom: 5px;
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: rgba(253, 180, 98, 0.17);
+  color: #FDB462;
+  font-size: 9.5px;
+  font-weight: 800;
+  letter-spacing: 0.25px;
+  text-transform: uppercase;
+}
+
+.hero-card h2 {
+  margin: 0 0 5px 0;
+  color: #ffffff;
+  font-size: 18px;
+  line-height: 1.1;
+  letter-spacing: -0.35px;
+}
+
+.hero-card p {
+  margin: 0;
+  color: rgba(217, 217, 217, 0.86);
+  line-height: 1.3;
+  font-size: 11.5px;
+}
+
+/* İSTATİSTİKLER */
+.stats-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 7px;
+  margin-bottom: 8px;
+}
+
+.stat-card {
+  padding: 9px 10px;
+  border-radius: 13px;
+  background: rgba(0, 0, 0, 0.18);
+  border: 1px solid rgba(253, 180, 98, 0.2);
+}
+
+.stat-card span {
+  display: block;
+  font-size: 10.5px;
+  color: rgba(217, 217, 217, 0.72);
+  margin-bottom: 3px;
+}
+
+.stat-card strong {
+  display: block;
+  color: #FDB462;
+  font-size: 21px;
+  line-height: 1;
+}
+
+/* ARAMA/FİLTRE */
+.control-card h3,
+.legend-card h3 {
+  margin: 0 0 8px 0;
+  color: #ffffff;
+  font-size: 13.5px;
+}
+
+.control-card small {
+  display: block;
+  color: rgba(217, 217, 217, 0.68);
+  line-height: 1.25;
+  font-size: 10.5px;
+}
+
+.search-panel {
+  margin-top: 8px;
+}
+
+.search-panel.hidden {
+  display: none;
+}
+
+.input-row {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+#stopFilterInput {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  outline: none;
+  border-radius: 11px;
+  padding: 8px 9px;
+  background: rgba(255, 255, 255, 0.13);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.13);
+  font-size: 12px;
+}
+
+#stopFilterInput::placeholder {
+  color: rgba(217, 217, 217, 0.55);
+}
+
+#clearFilterBtn {
+  border: none;
+  border-radius: 11px;
+  padding: 0 9px;
+  background: rgba(253, 180, 98, 0.17);
+  color: #FDB462;
+  font-size: 11.5px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+/* LEGEND */
+.legend-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 7px;
+}
+
+.legend-row:last-child {
+  margin-bottom: 0;
+}
+
+.legend-row b {
+  display: block;
+  color: #ffffff;
+  font-size: 12px;
+}
+
+.legend-row small {
+  display: block;
+  color: rgba(217, 217, 217, 0.72);
+  margin-top: 1px;
+  font-size: 10.5px;
+  line-height: 1.2;
+}
+
+.legend-dot {
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.legend-dot.heat {
+  background: radial-gradient(circle, rgba(253, 180, 98, 0.95) 0%, rgba(255, 105, 56, 0.75) 48%, transparent 72%);
+  box-shadow: 0 0 14px rgba(253, 180, 98, 0.72);
+}
+
+.legend-dot.cluster {
+  background: #FDB462;
+  box-shadow: 0 0 0 6px rgba(253, 180, 98, 0.2);
+}
+
+.legend-dot.point {
+  background: #FDB462;
+  border: 2px solid #ffffff;
+}
+
+/* BUTONLAR */
+button {
+  font-family: inherit;
+}
+
+.button-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.primary-btn,
+.secondary-btn,
+.wide-toggle-btn {
+  width: 100%;
+  border: none;
+  border-radius: 12px;
+  padding: 9px 11px;
+  font-size: 12.5px;
+  font-weight: 850;
+  cursor: pointer;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+}
+
+.primary-btn {
+  background: linear-gradient(135deg, #FDB462 0%, #ff8f3c 100%);
+  color: #172536;
+  box-shadow: 0 12px 26px rgba(253, 180, 98, 0.28);
+}
+
+.secondary-btn {
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+}
+
+.wide-toggle-btn {
+  background: linear-gradient(135deg, rgba(253, 180, 98, 0.22), rgba(255, 255, 255, 0.1));
+  color: #ffffff;
+  border: 1px solid rgba(253, 180, 98, 0.35);
+}
+
+.primary-btn:hover,
+.secondary-btn:hover,
+.wide-toggle-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.28);
+}
+
+.secondary-btn:hover,
+.wide-toggle-btn:hover {
+  background: rgba(253, 180, 98, 0.18);
+  border-color: rgba(253, 180, 98, 0.42);
+}
+
+/* BİLGİ KUTUSU */
+#info {
+  min-height: 44px;
+  padding: 9px 10px;
+  border-radius: 13px;
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  font-size: 11.5px;
+  line-height: 1.3;
+  color: rgba(217, 217, 217, 0.88);
+}
+
+/* HARİTA ALANI */
+#mapShell {
+  position: relative;
+  flex: 1;
+  height: 100vh;
+  padding: 18px;
+}
+
+#viewDiv {
+  width: 100%;
+  height: 100%;
+  border-radius: 30px;
+  overflow: hidden;
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.42);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+/* ÜST BAR */
+#topBar {
+  position: absolute;
+  top: 30px;
+  left: 34px;
+  right: 34px;
+  height: 60px;
+  z-index: 12;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  border-radius: 20px;
+  background: rgba(16, 31, 47, 0.74);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  box-shadow: 0 18px 45px rgba(0, 0, 0, 0.28);
+  pointer-events: none;
+}
+
+#topBar strong {
+  display: block;
+  color: #ffffff;
+  font-size: 15px;
+}
+
+#topBar span {
+  display: block;
+  margin-top: 2px;
+  color: rgba(217, 217, 217, 0.78);
+  font-size: 11px;
+}
+
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+#zoomStatus,
+#activeMode {
+  padding: 7px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 850;
+}
+
+#zoomStatus {
+  background: rgba(253, 180, 98, 0.16);
+  border: 1px solid rgba(253, 180, 98, 0.38);
+  color: #FDB462;
+}
+
+#activeMode {
+  background: rgba(128, 177, 211, 0.18);
+  border: 1px solid rgba(128, 177, 211, 0.35);
+  color: #D9D9D9;
+}
+
+/* HARİTA AKSİYONLARI */
+#mapActions {
+  position: absolute;
+  top: 104px;
+  right: 34px;
+  z-index: 13;
+  display: flex;
+  gap: 8px;
+}
+
+#mapActions button,
+.drawer-header button {
+  border: none;
+  border-radius: 999px;
+  padding: 9px 12px;
+  background: rgba(16, 31, 47, 0.82);
+  color: #ffffff;
+  font-weight: 850;
+  font-size: 11.5px;
+  cursor: pointer;
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(253, 180, 98, 0.42);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.28);
+  transition: all 0.18s ease;
+}
+
+#mapActions button:hover,
+.drawer-header button:hover {
+  transform: translateY(-1px);
+  background: #FDB462;
+  color: #172536;
+}
+
+/* ROTA PANELİ */
+.floating-panel {
+  position: absolute;
+  top: 150px;
+  right: 34px;
+  width: 380px;
+  max-height: calc(100vh - 205px);
+  overflow-y: auto;
+  z-index: 14;
+  border-radius: 22px;
+  background: rgba(16, 31, 47, 0.92);
+  backdrop-filter: blur(18px);
+  border: 1px solid rgba(253, 180, 98, 0.34);
+  box-shadow: 0 28px 62px rgba(0, 0, 0, 0.42);
+  padding: 9px;
+}
+
+.hidden {
+  display: none !important;
+}
+
+#directionsContainer .esri-directions {
+  width: 100%;
+}
+
+#directionsContainer .esri-widget {
+  background: transparent;
+}
+
+#directionsPanel #directionsContainer {
+  width: 100%;
+}
+
+.clear-route-btn {
+  width: 100%;
+  margin-top: 8px;
+  border: none;
+  border-radius: 13px;
+  padding: 10px 12px;
+  background: linear-gradient(135deg, #FDB462 0%, #ff8f3c 100%);
+  color: #172536;
+  font-size: 12.5px;
+  font-weight: 900;
+  cursor: pointer;
+  box-shadow: 0 12px 26px rgba(253, 180, 98, 0.24);
+  transition: all 0.18s ease;
+}
+
+.clear-route-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 16px 32px rgba(253, 180, 98, 0.34);
+}
+
+.clear-route-btn:disabled {
+  opacity: 0.38;
+  cursor: not-allowed;
+  filter: grayscale(80%);
+  box-shadow: none;
+}
+
+/* TABLO */
+#tableDrawer {
+  position: absolute;
+  left: 34px;
+  right: 34px;
+  bottom: 30px;
+  height: 315px;
+  z-index: 15;
+  border-radius: 24px;
+  background: rgba(16, 31, 47, 0.94);
+  backdrop-filter: blur(18px);
+  border: 1px solid rgba(253, 180, 98, 0.32);
+  box-shadow: 0 28px 70px rgba(0, 0, 0, 0.46);
+  overflow: hidden;
+}
+
+.drawer-header {
+  height: 56px;
+  padding: 0 14px 0 18px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: rgba(253, 180, 98, 0.08);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.drawer-header strong {
+  display: block;
+  color: #ffffff;
+  font-size: 15px;
+}
+
+.drawer-header span {
+  display: block;
+  margin-top: 2px;
+  color: rgba(217, 217, 217, 0.7);
+  font-size: 11px;
+}
+
+#tableContainer {
+  width: 100%;
+  height: calc(100% - 56px);
+}
+
+/* ARCGIS UI */
+.esri-ui-top-left {
+  top: 90px !important;
+  left: 22px !important;
+}
+
+.esri-ui-top-right {
+  top: 90px !important;
+  right: 22px !important;
+}
+
+.esri-widget,
+.esri-widget--button,
+.esri-menu,
+.esri-popup__main-container,
+.esri-search,
+.esri-feature-table {
+  border-radius: 13px !important;
+}
+
+.esri-search {
+  width: 340px !important;
+}
+
+.esri-popup__main-container {
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.42) !important;
+}
+
+/* POPUP ROTA BUTONU */
+.popup-route-btn {
+  width: 100%;
+  margin-top: 10px;
+  border: none;
+  border-radius: 11px;
+  padding: 9px 11px;
+  background: linear-gradient(135deg, #FDB462 0%, #ff8f3c 100%);
+  color: #172536;
+  font-size: 12.5px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.popup-route-btn:hover {
+  filter: brightness(1.08);
+}
+
+/* MOBİL */
+@media (max-width: 980px) {
+  body {
+    overflow: auto;
+  }
+
+  #app {
+    flex-direction: column;
+    height: auto;
+    min-height: 100vh;
+  }
+
+  #sidebar {
+    width: 100%;
+    max-height: 405px;
+  }
+
+  #mapShell {
+    height: calc(100vh - 405px);
+    min-height: 520px;
+    padding: 10px;
+  }
+
+  #topBar {
+    display: none;
+  }
+
+  #mapActions {
+    top: 22px;
+    right: 22px;
+    left: 22px;
+    flex-wrap: wrap;
+  }
+
+  .floating-panel {
+    top: 105px;
+    right: 22px;
+    left: 22px;
+    width: auto;
+  }
+
+  #tableDrawer {
+    left: 22px;
+    right: 22px;
+    bottom: 22px;
+    height: 300px;
+  }
+}

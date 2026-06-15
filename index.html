@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="tr">
+  <head>
+    <meta charset="UTF-8" />
+    <title>IETT Durakları | Web GIS Dashboard</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  </head>
+
+  <body>
+    <div id="app">
+      <aside id="sidebar">
+        <div class="brand">
+          <div class="logo">İ</div>
+          <div>
+            <h1>IETT Durakları</h1>
+            <span>Heatmap · Cluster · Route · Table</span>
+          </div>
+        </div>
+
+        <section class="hero-card">
+          <div class="eyebrow">İstanbul Toplu Taşıma Analizi</div>
+          <h2>Otobüs Durak Yoğunluğu</h2>
+          <p>
+            IETT durakları uzak ölçekte ısı haritası, orta ölçekte cluster,
+            yakın ölçekte ise tekil durak noktaları olarak gösterilir.
+          </p>
+        </section>
+
+        <section class="stats-grid">
+          <div class="stat-card">
+            <span>Toplam Durak</span>
+            <strong id="totalStops">-</strong>
+          </div>
+          <div class="stat-card">
+            <span>Ekranda Gösterilen</span>
+            <strong id="visibleStops">-</strong>
+          </div>
+        </section>
+
+        <section class="control-card">
+          <h3>Durak Arama / Filtre</h3>
+
+          <div class="input-row">
+            <input
+              id="stopFilterInput"
+              type="text"
+              placeholder="Durak adı veya durak kodu ara"
+            />
+            <button id="clearFilterBtn">Temizle</button>
+          </div>
+
+          <small>
+            Veride ilçe adı yok. Bu yüzden durak adı, durak kodu veya ID üzerinden arama yapılır.
+          </small>
+        </section>
+
+        <section class="button-grid">
+          <button id="nearestStopBtn" class="primary-btn">
+            En Yakın Durağa Rota
+          </button>
+
+          <button id="setStartModeBtn" class="primary-btn">
+            Başlangıç Noktası Seç
+          </button>
+
+          <button id="clearStartBtn" class="secondary-btn">
+            Başlangıcı Temizle
+          </button>
+
+          <button id="fitStopsBtn" class="secondary-btn">
+            Tüm Duraklara Zoom
+          </button>
+
+          <button id="resetViewBtn" class="secondary-btn">
+            Haritayı Sıfırla
+          </button>
+        </section>
+
+        <div id="info">
+          Harita yükleniyor...
+        </div>
+      </aside>
+
+      <main id="mapShell">
+        <div id="topBar">
+          <div>
+            <strong>IETT Web GIS Dashboard</strong>
+            <span>ArcGIS Maps SDK for JavaScript</span>
+          </div>
+
+          <div class="topbar-right">
+            <div id="zoomStatus">Zoom bekleniyor...</div>
+            <div id="activeMode">Hazırlanıyor</div>
+          </div>
+        </div>
+
+        <div id="mapActions">
+          <button id="toggleDirectionsBtn">Rota Paneli</button>
+          <button id="toggleTableBtn">Durak Tablosu</button>
+        </div>
+
+        <div id="directionsPanel" class="floating-panel hidden">
+          <div id="directionsContainer"></div>
+          <div id="routeInfoPanel" style="padding: 12px 0;"></div>
+          <button id="clearRouteBtn" class="clear-route-btn" disabled>
+            Rotayı Temizle
+          </button>
+        </div>
+        
+        <div id="tableDrawer" class="hidden">
+          <div class="drawer-header">
+            <div>
+              <strong>Durak Tablosu</strong>
+              <span>IETT GeoJSON kayıtları</span>
+            </div>
+            <button id="closeTableBtn">Kapat</button>
+          </div>
+
+          <div id="tableContainer"></div>
+        </div>
+        
+        <div id="nearestStopPanel" class="floating-panel hidden">
+          <div class="drawer-header">
+            <div>
+              <strong>En Yakın Durak Bul</strong>
+              <span>Konumunuza en yakın IETT durağı</span>
+            </div>
+            <button id="closeNearestBtn" style="background: none; border: none; color: white; font-size: 18px; cursor: pointer;">✕</button>
+          </div>
+          
+          <div id="nearestStopContent" style="padding: 15px;">
+            <button id="useLocationNearestBtn" style="width: 100%; padding: 12px; margin-bottom: 10px; background: #2196F3; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; font-weight: bold;">
+              📍 Konumumu Kullan (GPS)
+            </button>
+            
+            <button id="selectFromMapNearestBtn" style="width: 100%; padding: 12px; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; font-weight: bold;">
+              🗺️ Haritadan Seç
+            </button>
+          </div>
+          
+          <div id="nearestStopInfo" style="padding: 15px; display: none;">
+          </div>
+        </div>
+        
+        <div id="viewDiv"></div>
+      </main>
+    </div>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
