@@ -18,5 +18,5 @@ export function buildStopFilter(value) {
     .replaceAll(";", "")
     .replace(/[\x00-\x1f]/g, "");
 
-  return `UPPER(ADI) LIKE UPPER('%${safeValue}%') OR UPPER(DURAK_KODU) LIKE UPPER('%${safeValue}%') OR UPPER(DURAK_TIPI) LIKE UPPER('%${safeValue}%') OR UPPER(YON_BILGISI) LIKE UPPER('%${safeValue}%') OR CAST(ILCEID AS VARCHAR(20)) LIKE '%${safeValue}%'`;
+  return `UPPER(ADI) LIKE UPPER('%${safeValue}%') OR UPPER(DURAK_KODU) LIKE UPPER('%${safeValue}%') OR UPPER(DURAK_TIPI) LIKE UPPER('%${safeValue}%') OR UPPER(YON_BILGISI) LIKE UPPER('%${safeValue}%') OR UPPER(CAST(ILCEID AS VARCHAR(20))) LIKE UPPER('%${safeValue}%')`;
 }
