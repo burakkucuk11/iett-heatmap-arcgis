@@ -3,12 +3,15 @@ import "./style.css";
 import Map from "@arcgis/core/Map.js";
 import MapView from "@arcgis/core/views/MapView.js";
 import GeoJSONLayer from "@arcgis/core/layers/GeoJSONLayer.js";
-import Search from "@arcgis/core/widgets/Search.js";
-import Directions from "@arcgis/core/widgets/Directions.js";
 import RouteLayer from "@arcgis/core/layers/RouteLayer.js";
-import FeatureTable from "@arcgis/core/widgets/FeatureTable.js";
 import Graphic from "@arcgis/core/Graphic.js";
 import esriConfig from "@arcgis/core/config.js";
+import * as reactiveUtils from "@arcgis/core/core/reactiveUtils.js";
+import TableTemplate from "@arcgis/core/widgets/FeatureTable/support/TableTemplate.js";
+
+import "@arcgis/map-components/dist/components/arcgis-search";
+import "@arcgis/map-components/dist/components/arcgis-directions";
+import "@arcgis/map-components/dist/components/arcgis-feature-table";
 
 import { ISTANBUL_CENTER, START_POINT_COLOR, ZOOM_THRESHOLDS, DEFAULT_WHERE } from "./config/constants.js";
 import { heatmapRenderer, pointRenderer, stopLabelingInfo, clusterConfig } from "./config/renderers.js";
@@ -121,67 +124,49 @@ const view = new MapView({
   }
 });
 
-const searchWidget = new Search({
-  view,
-  includeDefaultSources: true,
-  allPlaceholder: "Durak, kod veya adres ara",
-  sources: [
-    {
-      layer: iettLayer,
-      searchFields: ["ADI", "DURAK_KODU", "DURAK_TIPI", "YON_BILGISI", "ILCEID"],
-      displayField: "ADI",
-      exactMatch: false,
-      outFields: ["*"],
-      name: "IETT Durakları",
-      placeholder: "Durak adı veya kodu ara",
-      suggestionsEnabled: true,
-      minSuggestCharacters: 2
-    }
-  ]
-});
+const searchEl = document.querySelector("arcgis-search");
+const directionsEl = document.querySelector("arcgis-directions");
+const featureTableEl = document.querySelector("arcgis-feature-table");
 
-view.ui.add(searchWidget, {
-  position: "top-left"
-});
-
-const directionsWidget = new Directions({
-  view,
-  layer: routeLayer,
-  apiKey: esriConfig.apiKey,
-  container: "directionsWidgetContainer",
-  visibleElements: {
-    saveAsButton: false,
-    saveButton: false,
-    printButton: false,
-    directionsListElement: true
-  },
-  autoComplete: false
-});
-
-const featureTable = new FeatureTable({
-  view,
-  layer: iettLayer,
-  container: "tableContainer",
-  multiSortEnabled: true,
-  highlightEnabled: true,
-  fieldConfigs: [
-    { name: "ADI", label: "Durak Adı" },
-    { name: "DURAK_KODU", label: "Durak Kodu" },
-    { name: "DURAK_TIPI", label: "Durak Tipi" },
-    { name: "YON_BILGISI", label: "Yön Bilgisi" },
-    { name: "DURUMU", label: "Durumu" },
-    { name: "ILCEID", label: "İlçe ID" },
-    { name: "MAHALLEID", label: "Mahalle ID" }
-  ],
-  visibleElements: {
-    menuItems: {
-      clearSelection: true,
-      refreshData: true,
-      toggleColumns: true,
-      selectedRecordsShowAllToggle: true,
-      zoomToSelection: true
-    }
+searchEl.view = view;
+searchEl.includeDefaultSources = true;
+searchEl.allPlaceholder = "Durak, kod veya adres ara";
+searchEl.sources = [
+  {
+    layer: iettLayer,
+    searchFields: ["ADI", "DURAK_KODU", "DURAK_TIPI", "YON_BILGISI", "ILCEID"],
+    displayField: "ADI",
+    exactMatch: false,
+    outFields: ["*"],
+    name: "IETT Durakları",
+    placeholder: "Durak adı veya kodu ara",
+    suggestionsEnabled: true,
+    minSuggestCharacters: 2
   }
+];
+
+view.ui.add(searchEl, { position: "top-left" });
+
+directionsEl.view = view;
+directionsEl.layer = routeLayer;
+directionsEl.apiKey = esriConfig.apiKey;
+directionsEl.hideSaveAsButton = true;
+directionsEl.hideSaveButton = true;
+directionsEl.hidePrintButton = true;
+
+featureTableEl.view = view;
+featureTableEl.layer = iettLayer;
+featureTableEl.multipleSortEnabled = true;
+featureTableEl.tableTemplate = new TableTemplate({
+  columnTemplates: [
+    { type: "field", fieldName: "ADI", label: "Durak Adı" },
+    { type: "field", fieldName: "DURAK_KODU", label: "Durak Kodu" },
+    { type: "field", fieldName: "DURAK_TIPI", label: "Durak Tipi" },
+    { type: "field", fieldName: "YON_BILGISI", label: "Yön Bilgisi" },
+    { type: "field", fieldName: "DURUMU", label: "Durumu" },
+    { type: "field", fieldName: "ILCEID", label: "İlçe ID" },
+    { type: "field", fieldName: "MAHALLEID", label: "Mahalle ID" }
+  ]
 });
 
 const directionsPanel = document.getElementById("directionsPanel");
@@ -233,17 +218,23 @@ view.when(async () => {
   setInfo("Harita yüklenemedi. Console hatasını kontrol et.");
 });
 
-view.watch("zoom", debounce(() => {
-  applyZoomBasedRenderer();
-}, 80));
+reactiveUtils.watch(
+  () => view.zoom,
+  debounce(() => {
+    applyZoomBasedRenderer();
+  }, 80)
+);
 
-view.watch("extent", debounce(async () => {
-  try {
-    await updateVisibleCountByExtent();
-  } catch (error) {
-    console.error("Extent değişikliğinde durak sayısı güncellenemedi:", error);
-  }
-}, 400));
+reactiveUtils.watch(
+  () => view.extent,
+  debounce(async () => {
+    try {
+      await updateVisibleCountByExtent();
+    } catch (error) {
+      console.error("Extent değişikliğinde durak sayısı güncellenemedi:", error);
+    }
+  }, 400)
+);
 
 toggleDirectionsBtn.addEventListener("click", () => {
   const isVisible = togglePanel(directionsPanel, {
@@ -624,7 +615,7 @@ async function findNearestStop(userPoint) {
 
 async function createRoute(startPoint, endPoint, stopName) {
   try {
-    await directionsWidget.when();
+    await reactiveUtils.whenOnce(() => directionsEl.view);
   } catch (error) {
     console.error("Directions widget başlatılamadı:", error);
     setInfo("Rota servisi başlatılamadı. Sayfa yenilenmeyi deneyin.");
@@ -654,7 +645,7 @@ async function createRoute(startPoint, endPoint, stopName) {
   }
 
   try {
-    await directionsWidget.viewModel.getDirections();
+    await directionsEl.getDirections();
 
     hasActiveRoute = true;
     isSelectingRouteTarget = false;
@@ -672,19 +663,13 @@ async function createRoute(startPoint, endPoint, stopName) {
 }
 
 function clearRoute(showMessage = true) {
-  safeRemoveAll(directionsWidget.viewModel?.reset && null, "Directions reset");
-
   try {
-    if (directionsWidget.viewModel && directionsWidget.viewModel.reset) {
-      directionsWidget.viewModel.reset();
-    }
+    safeRemoveAll(routeLayer.stops, "Stops");
+    safeRemoveAll(routeLayer.directionLines, "Direction lines");
+    safeRemoveAll(routeLayer.routes, "Routes");
   } catch (error) {
-    console.warn("Directions reset çalışmadı:", error);
+    console.warn("Rota temizleme sırasında hata:", error);
   }
-
-  safeRemoveAll(routeLayer.stops, "Stops");
-  safeRemoveAll(routeLayer.directionLines, "Direction lines");
-  safeRemoveAll(routeLayer.routes, "Routes");
 
   hasActiveRoute = false;
   isSelectingRouteTarget = false;
