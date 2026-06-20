@@ -13,7 +13,7 @@ import "@arcgis/map-components/dist/components/arcgis-search";
 import "@arcgis/map-components/dist/components/arcgis-directions";
 import "@arcgis/map-components/dist/components/arcgis-feature-table";
 
-import { ISTANBUL_CENTER, START_POINT_COLOR, ZOOM_THRESHOLDS, DEFAULT_WHERE } from "./config/constants.js";
+import { ISTANBUL_CENTER, START_POINT_COLOR, NEAREST_STOP_COLOR, USER_LOCATION_COLOR, ZOOM_THRESHOLDS, DEFAULT_WHERE } from "./config/constants.js";
 import { heatmapRenderer, pointRenderer, stopLabelingInfo, clusterConfig } from "./config/renderers.js";
 import { setInfo, formatNumber, debounce, setButtonState, togglePanel } from "./utils/dom.js";
 import { haversineDistanceMeters, getUserLocationPoint, createLayerQuery } from "./utils/geo.js";
@@ -35,6 +35,9 @@ let pendingRouteTarget = null;
 let isSelectingRouteTarget = false;
 let hasActiveRoute = false;
 let isSelectingNearestFromMap = false;
+
+let nearestStopGraphic = null;
+let userLocationGraphic = null;
 
 let lastRendererMode = null;
 
@@ -328,6 +331,7 @@ nearestStopBtn.addEventListener("click", () => {
 closeNearestBtn.addEventListener("click", () => {
   togglePanel(nearestStopPanel, { show: false });
   isSelectingNearestFromMap = false;
+  clearNearestStopGraphics();
 });
 
 useLocationNearestBtn.addEventListener("click", async () => {
@@ -339,7 +343,7 @@ useLocationNearestBtn.addEventListener("click", async () => {
     if (userPoint) {
       const nearest = await findNearestStop(userPoint);
       if (nearest) {
-        showNearestStopInfo(nearest, userPoint);
+        await handleNearestStopFound(nearest, userPoint);
       }
     } else {
       setInfo("Konum alınamadı. Haritadan nokta seç.");
@@ -373,7 +377,7 @@ view.on("click", async (event) => {
       const nearest = await findNearestStop(event.mapPoint);
 
       if (nearest) {
-        showNearestStopInfo(nearest, event.mapPoint);
+        await handleNearestStopFound(nearest, event.mapPoint);
       } else {
         setInfo("Seçilen noktaya yakın durak bulunamadı.");
       }
@@ -404,6 +408,11 @@ view.on("click", async (event) => {
         name: stopGraphic.attributes?.ADI || "IETT Durağı"
       };
 
+      if (isSelectingRouteTarget && selectedStartPoint) {
+        await createRoute(selectedStartPoint, pendingRouteTarget.geometry, pendingRouteTarget.name);
+        pendingRouteTarget = null;
+      }
+
       return;
     }
 
@@ -412,14 +421,27 @@ view.on("click", async (event) => {
       name: "Seçilen Nokta"
     };
 
+    if (isSelectingRouteTarget && selectedStartPoint) {
+      await createRoute(selectedStartPoint, event.mapPoint, "Seçilen Nokta");
+      pendingRouteTarget = null;
+      return;
+    }
+
     const pointContainer = document.createElement("div");
     pointContainer.style.lineHeight = "1.7";
 
-    pointContainer.innerHTML = `
-      <b>Koordinat:</b><br/>
-      X: ${event.mapPoint.longitude?.toFixed(6) || "-"}<br/>
-      Y: ${event.mapPoint.latitude?.toFixed(6) || "-"}<br/>
-    `;
+    const coordLabel = document.createElement("b");
+    coordLabel.textContent = "Koordinat:";
+    pointContainer.appendChild(coordLabel);
+    pointContainer.appendChild(document.createElement("br"));
+
+    const xText = document.createTextNode(`X: ${event.mapPoint.longitude?.toFixed(6) || "-"}`);
+    pointContainer.appendChild(xText);
+    pointContainer.appendChild(document.createElement("br"));
+
+    const yText = document.createTextNode(`Y: ${event.mapPoint.latitude?.toFixed(6) || "-"}`);
+    pointContainer.appendChild(yText);
+    pointContainer.appendChild(document.createElement("br"));
 
     const pointRouteButton = document.createElement("button");
     pointRouteButton.className = "popup-route-btn";
@@ -671,6 +693,8 @@ function clearRoute(showMessage = true) {
     console.warn("Rota temizleme sırasında hata:", error);
   }
 
+  clearNearestStopGraphics();
+
   hasActiveRoute = false;
   isSelectingRouteTarget = false;
   updateRouteButtonState();
@@ -820,6 +844,84 @@ function showStartPointMenu() {
   });
 }
 
+function clearNearestStopGraphics() {
+  if (nearestStopGraphic) {
+    view.graphics.remove(nearestStopGraphic);
+    nearestStopGraphic = null;
+  }
+  if (userLocationGraphic) {
+    view.graphics.remove(userLocationGraphic);
+    userLocationGraphic = null;
+  }
+}
+
+function highlightNearestStop(stop) {
+  clearNearestStopGraphics();
+
+  nearestStopGraphic = new Graphic({
+    geometry: stop.geometry,
+    symbol: {
+      type: "simple-marker",
+      style: "circle",
+      color: NEAREST_STOP_COLOR,
+      size: 18,
+      outline: {
+        color: "#ffffff",
+        width: 3
+      }
+    },
+    attributes: { type: "nearest-stop-highlight" }
+  });
+
+  view.graphics.add(nearestStopGraphic);
+}
+
+function showUserLocationMarker(point) {
+  if (userLocationGraphic) {
+    view.graphics.remove(userLocationGraphic);
+  }
+
+  userLocationGraphic = new Graphic({
+    geometry: point,
+    symbol: {
+      type: "simple-marker",
+      style: "circle",
+      color: USER_LOCATION_COLOR,
+      size: 12,
+      outline: {
+        color: "#ffffff",
+        width: 2
+      }
+    },
+    attributes: { type: "user-location" }
+  });
+
+  view.graphics.add(userLocationGraphic);
+}
+
+async function handleNearestStopFound(stop, userPoint) {
+  highlightNearestStop(stop);
+  showUserLocationMarker(userPoint);
+  showNearestStopInfo(stop, userPoint);
+
+  await view.goTo({
+    target: [stop.geometry, userPoint],
+    zoom: Math.max(view.zoom, 15)
+  });
+
+  if (!selectedStartPoint) {
+    setStartPoint(userPoint);
+  }
+
+  togglePanel(nearestStopPanel, { show: false });
+
+  await createRoute(
+    selectedStartPoint,
+    stop.geometry,
+    stop.attributes.ADI || "IETT Durağı"
+  );
+}
+
 function showNearestStopInfo(stop, userPoint) {
   const distance = Math.round(
     haversineDistanceMeters(
@@ -873,24 +975,6 @@ function showNearestStopInfo(stop, userPoint) {
   distanceSection.appendChild(distanceText);
   card.appendChild(distanceSection);
 
-  const routeBtn = document.createElement("button");
-  routeBtn.className = "nearest-stop-route-btn";
-  routeBtn.textContent = "Bu Durağa Rota Oluştur";
-
-  routeBtn.addEventListener("click", async () => {
-    if (selectedStartPoint) {
-      await createRoute(selectedStartPoint, stop.geometry, stop.attributes.ADI);
-      togglePanel(nearestStopPanel, { show: false });
-      setInfo(`${stop.attributes.ADI} durağına rota oluşturuldu.`);
-    } else {
-      togglePanel(directionsPanel, { show: true });
-      toggleDirectionsBtn.innerText = "Paneli Kapat";
-      showStartPointMenu();
-      setInfo("Önce başlangıç noktası seç.");
-    }
-  });
-
-  card.appendChild(routeBtn);
   nearestStopInfo.appendChild(card);
 }
 
