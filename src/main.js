@@ -11,9 +11,14 @@ import Point from "@arcgis/core/geometry/Point.js";
 import Graphic from "@arcgis/core/Graphic.js";
 import esriConfig from "@arcgis/core/config.js";
 
+import { haversineDistanceMeters } from "./utils/haversine.js";
+import { formatNumber } from "./utils/formatNumber.js";
+import { debounce } from "./utils/debounce.js";
+import { buildStopFilter } from "./utils/filterBuilder.js";
+import { heatmapRenderer, pointRenderer, stopLabelingInfo, clusterConfig, getRendererForZoom } from "./utils/renderers.js";
+
 esriConfig.apiKey = import.meta.env.VITE_ARCGIS_API_KEY;
 
-const STOP_COLOR = "#FDB462";
 const ISTANBUL_CENTER = [28.9784, 41.0082];
 
 let totalStopCount = 0;
@@ -27,105 +32,6 @@ let pendingRouteTarget = null;
 let isSelectingRouteTarget = false;
 let hasActiveRoute = false;
 let isSelectingNearestFromMap = false;
-
-const heatmapRenderer = {
-  type: "heatmap",
-  colorStops: [
-    { ratio: 0, color: "rgba(128, 177, 211, 0)" },
-    { ratio: 0.35, color: "rgba(128, 177, 211, 0.16)" },
-    { ratio: 0.58, color: "rgba(253, 180, 98, 0.34)" },
-    { ratio: 0.82, color: "rgba(255, 145, 70, 0.50)" },
-    { ratio: 1, color: "rgba(190, 45, 28, 0.68)" }
-  ],
-  radius: 10,
-  maxDensity: 0.045,
-  minDensity: 0
-};
-
-const pointRenderer = {
-  type: "simple",
-  symbol: {
-    type: "simple-marker",
-    style: "circle",
-    color: STOP_COLOR,
-    size: 8,
-    outline: {
-      color: "#ffffff",
-      width: 1
-    }
-  }
-};
-const stopLabelingInfo = [
-  {
-    labelExpressionInfo: {
-      expression: "$feature.ADI"
-    },
-    symbol: {
-      type: "text",
-      color: "#ffffff",
-      haloColor: "#172536",
-      haloSize: 1.5,
-      font: {
-        size: 10,
-        weight: "bold",
-        family: "Arial"
-      }
-    },
-    labelPlacement: "above-center",
-    minScale: 18000,
-    maxScale: 0
-  }
-];
-
-const clusterConfig = {
-  type: "cluster",
-  clusterRadius: "90px",
-  popupTemplate: {
-    title: "Durak Kümesi",
-    content: "Bu bölgede <b>{cluster_count}</b> adet IETT durağı var."
-  },
-  labelingInfo: [
-    {
-      deconflictionStrategy: "none",
-      labelExpressionInfo: {
-        expression: "Text($feature.cluster_count, '#,###')"
-      },
-      symbol: {
-        type: "text",
-        color: "#172536",
-        font: {
-          weight: "bold",
-          size: "13px"
-        }
-      },
-      labelPlacement: "center-center"
-    }
-  ],
-  renderer: {
-    type: "simple",
-    symbol: {
-      type: "simple-marker",
-      style: "circle",
-      color: STOP_COLOR,
-      size: 28,
-      outline: {
-        color: "#ffffff",
-        width: 1.2
-      }
-    },
-    visualVariables: [
-      {
-        type: "size",
-        field: "cluster_count",
-        stops: [
-          { value: 10, size: 22 },
-          { value: 100, size: 40 },
-          { value: 500, size: 62 }
-        ]
-      }
-    ]
-  }
-};
 
 const iettLayer = new GeoJSONLayer({
   url: "/Data/OtobusDuraklari.geojson",
@@ -566,19 +472,7 @@ function applyZoomBasedRenderer() {
 }
 
 async function applyTextFilter(value) {
-  if (!value) {
-    currentWhere = "1=1";
-  } else {
-    const safeValue = value.replaceAll("'", "''");
-
-    currentWhere = `
-      UPPER(ADI) LIKE UPPER('%${safeValue}%')
-      OR UPPER(DURAK_KODU) LIKE UPPER('%${safeValue}%')
-      OR UPPER(DURAK_TIPI) LIKE UPPER('%${safeValue}%')
-      OR UPPER(YON_BILGISI) LIKE UPPER('%${safeValue}%')
-      OR CAST(ILCEID AS VARCHAR(20)) LIKE '%${safeValue}%'
-    `;
-  }
+  currentWhere = buildStopFilter(value);
 
   iettLayer.definitionExpression = currentWhere;
 
@@ -938,25 +832,6 @@ function showNearestStopInfo(stop, userPoint) {
   });
 }
 
-function haversineDistanceMeters(lon1, lat1, lon2, lat2) {
-  const radius = 6371000;
-  const toRad = (value) => (value * Math.PI) / 180;
-
-  const dLat = toRad(lat2 - lat1);
-  const dLon = toRad(lon2 - lon1);
-
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(toRad(lat1)) *
-      Math.cos(toRad(lat2)) *
-      Math.sin(dLon / 2) *
-      Math.sin(dLon / 2);
-
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-
-  return radius * c;
-}
-
 function setInfo(message) {
   const info = document.getElementById("info");
 
@@ -965,18 +840,3 @@ function setInfo(message) {
   }
 }
 
-function formatNumber(value) {
-  return new Intl.NumberFormat("tr-TR").format(value);
-}
-
-function debounce(callback, delay) {
-  let timeout;
-
-  return (...args) => {
-    clearTimeout(timeout);
-
-    timeout = setTimeout(() => {
-      callback(...args);
-    }, delay);
-  };
-}
