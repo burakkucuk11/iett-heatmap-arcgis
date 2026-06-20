@@ -142,13 +142,13 @@ popupTemplate: {
     container.style.lineHeight = "1.7";
 
     container.innerHTML = `
-      <b>Durak Adı:</b> ${attributes.ADI || "-"}<br/>
-      <b>Durak Kodu:</b> ${attributes.DURAK_KODU || "-"}<br/>
-      <b>Durak Tipi:</b> ${attributes.DURAK_TIPI || "-"}<br/>
-      <b>Yön Bilgisi:</b> ${attributes.YON_BILGISI || "-"}<br/>
-      <b>Durumu:</b> ${attributes.DURUMU || "-"}<br/>
-      <b>İlçe ID:</b> ${attributes.ILCEID || "-"}<br/>
-      <b>Mahalle ID:</b> ${attributes.MAHALLEID || "-"}<br/>
+      <b>Durak Adı:</b> ${escapeHtml(attributes.ADI)}<br/>
+      <b>Durak Kodu:</b> ${escapeHtml(attributes.DURAK_KODU)}<br/>
+      <b>Durak Tipi:</b> ${escapeHtml(attributes.DURAK_TIPI)}<br/>
+      <b>Yön Bilgisi:</b> ${escapeHtml(attributes.YON_BILGISI)}<br/>
+      <b>Durumu:</b> ${escapeHtml(attributes.DURUMU)}<br/>
+      <b>İlçe ID:</b> ${escapeHtml(attributes.ILCEID)}<br/>
+      <b>Mahalle ID:</b> ${escapeHtml(attributes.MAHALLEID)}<br/>
     `;
 
     const routeButton = document.createElement("button");
@@ -569,7 +569,13 @@ async function applyTextFilter(value) {
   if (!value) {
     currentWhere = "1=1";
   } else {
-    const safeValue = value.replaceAll("'", "''");
+    const safeValue = value
+      .replaceAll("'", "''")
+      .replaceAll("%", "")
+      .replaceAll("_", "\\_")
+      .replaceAll("-", "")
+      .replaceAll(";", "")
+      .replace(/[\x00-\x1f]/g, "");
 
     currentWhere = `
       UPPER(ADI) LIKE UPPER('%${safeValue}%')
@@ -902,14 +908,14 @@ function showNearestStopInfo(stop, userPoint) {
   nearestStopInfo.innerHTML = `
     <div style="background: rgba(253, 180, 98, 0.15); padding: 15px; border-radius: 8px; border-left: 4px solid #FDB462;">
       <h4 style="margin: 0 0 10px 0; color: #FDB462;">
-        📍 ${stop.attributes.ADI}
+        📍 ${escapeHtml(stop.attributes.ADI)}
       </h4>
 
       <div style="font-size: 13px; line-height: 1.8; color: #D9D9D9;">
-        <div><strong>Durak Kodu:</strong> ${stop.attributes.DURAK_KODU || "-"}</div>
-        <div><strong>Durak Tipi:</strong> ${stop.attributes.DURAK_TIPI || "-"}</div>
-        <div><strong>Yön Bilgisi:</strong> ${stop.attributes.YON_BILGISI || "-"}</div>
-        <div><strong>Durumu:</strong> ${stop.attributes.DURUMU || "-"}</div>
+        <div><strong>Durak Kodu:</strong> ${escapeHtml(stop.attributes.DURAK_KODU)}</div>
+        <div><strong>Durak Tipi:</strong> ${escapeHtml(stop.attributes.DURAK_TIPI)}</div>
+        <div><strong>Yön Bilgisi:</strong> ${escapeHtml(stop.attributes.YON_BILGISI)}</div>
+        <div><strong>Durumu:</strong> ${escapeHtml(stop.attributes.DURUMU)}</div>
       </div>
 
       <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.2);">
@@ -955,6 +961,16 @@ function haversineDistanceMeters(lon1, lat1, lon2, lat2) {
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 
   return radius * c;
+}
+
+function escapeHtml(str) {
+  if (str == null) return "-";
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 }
 
 function setInfo(message) {
