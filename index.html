@@ -50,9 +50,27 @@
             <button id="clearFilterBtn">Temizle</button>
           </div>
 
+          <div class="input-row" style="margin-top: 4px;">
+            <select id="districtSelect">
+              <option value="">Tüm İlçeler</option>
+            </select>
+          </div>
+
           <small>
-            Veride ilçe adı yok. Bu yüzden durak adı, durak kodu veya ID üzerinden arama yapılır.
+            İlçe dropdown'undan veya metin alanından filtreleme yapılabilir.
           </small>
+        </section>
+
+        <section class="control-card">
+          <h3>Durak İstatistikleri</h3>
+          <div id="statsContent" class="stats-content">
+            <div class="stat-row"><span>Yükleniyor...</span></div>
+          </div>
+        </section>
+
+        <section class="control-card">
+          <h3>Harita Lejandı</h3>
+          <arcgis-legend id="sidebarLegend"></arcgis-legend>
         </section>
 
         <section class="button-grid">
@@ -98,6 +116,12 @@
         <div id="mapActions">
           <button id="toggleDirectionsBtn">Rota Paneli</button>
           <button id="toggleTableBtn">Durak Tablosu</button>
+          <button id="basemapToggleBtn">Harita Katmanı</button>
+          <button id="themeToggleBtn">Açık Tema</button>
+        </div>
+
+        <div id="basemapPanel" class="floating-panel basemap-panel hidden">
+          <arcgis-basemap-gallery></arcgis-basemap-gallery>
         </div>
 
         <div id="directionsPanel" class="floating-panel hidden">
@@ -166,6 +190,8 @@
     </div>
 
     <arcgis-search></arcgis-search>
+    <arcgis-scale-bar></arcgis-scale-bar>
+    <button id="sidebarToggle">Paneli Aç</button>
     <script type="module" src="/src/main.js"></script>
   </body>
 </html>
