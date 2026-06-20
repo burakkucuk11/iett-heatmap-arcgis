@@ -20,7 +20,7 @@ describe("buildStopFilter", () => {
     expect(result).toContain("UPPER(DURAK_KODU) LIKE UPPER('%Taksim%')");
     expect(result).toContain("UPPER(DURAK_TIPI) LIKE UPPER('%Taksim%')");
     expect(result).toContain("UPPER(YON_BILGISI) LIKE UPPER('%Taksim%')");
-    expect(result).toContain("CAST(ILCEID AS VARCHAR(20)) LIKE '%Taksim%'");
+    expect(result).toContain("UPPER(CAST(ILCEID AS VARCHAR(20))) LIKE UPPER('%Taksim%')");
   });
 
   it("escapes single quotes to prevent SQL injection", () => {
