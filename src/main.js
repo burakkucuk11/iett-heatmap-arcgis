@@ -7,22 +7,19 @@ import Search from "@arcgis/core/widgets/Search.js";
 import Directions from "@arcgis/core/widgets/Directions.js";
 import RouteLayer from "@arcgis/core/layers/RouteLayer.js";
 import FeatureTable from "@arcgis/core/widgets/FeatureTable.js";
-import Point from "@arcgis/core/geometry/Point.js";
 import Graphic from "@arcgis/core/Graphic.js";
 import esriConfig from "@arcgis/core/config.js";
 
-import { haversineDistanceMeters } from "./utils/haversine.js";
-import { formatNumber } from "./utils/formatNumber.js";
-import { debounce } from "./utils/debounce.js";
-import { buildStopFilter } from "./utils/filterBuilder.js";
-import { heatmapRenderer, pointRenderer, stopLabelingInfo, clusterConfig, getRendererForZoom } from "./utils/renderers.js";
+import { ISTANBUL_CENTER, START_POINT_COLOR, ZOOM_THRESHOLDS, DEFAULT_WHERE } from "./config/constants.js";
+import { heatmapRenderer, pointRenderer, stopLabelingInfo, clusterConfig } from "./config/renderers.js";
+import { setInfo, formatNumber, debounce, setButtonState, togglePanel } from "./utils/dom.js";
+import { haversineDistanceMeters, getUserLocationPoint, createLayerQuery } from "./utils/geo.js";
+import { safeRemoveAll, createPopupContent, createCoordinatePopupContent } from "./utils/route.js";
 
 esriConfig.apiKey = import.meta.env.VITE_ARCGIS_API_KEY;
 
-const ISTANBUL_CENTER = [28.9784, 41.0082];
-
 let totalStopCount = 0;
-let currentWhere = "1=1";
+let currentWhere = DEFAULT_WHERE;
 
 let isSelectingStartPoint = false;
 let selectedStartPoint = null;
@@ -38,47 +35,29 @@ const iettLayer = new GeoJSONLayer({
   title: "IETT Durakları",
   outFields: ["*"],
   renderer: heatmapRenderer,
-popupTemplate: {
-  title: "{ADI}",
-  content: (event) => {
-    const graphic = event.graphic;
-    const attributes = graphic.attributes;
+  popupTemplate: {
+    title: "{ADI}",
+    content: (event) => {
+      const graphic = event.graphic;
+      const attributes = graphic.attributes;
 
-    const container = document.createElement("div");
-    container.style.lineHeight = "1.7";
+      return createPopupContent({
+        attributes,
+        onRouteClick: async () => {
+          if (!selectedStartPoint) {
+            setInfo("Önce sol panelden 'Başlangıç Noktası Seç' butonuna basıp haritadan başlangıç seçmelisin.");
+            return;
+          }
 
-    container.innerHTML = `
-      <b>Durak Adı:</b> ${attributes.ADI || "-"}<br/>
-      <b>Durak Kodu:</b> ${attributes.DURAK_KODU || "-"}<br/>
-      <b>Durak Tipi:</b> ${attributes.DURAK_TIPI || "-"}<br/>
-      <b>Yön Bilgisi:</b> ${attributes.YON_BILGISI || "-"}<br/>
-      <b>Durumu:</b> ${attributes.DURUMU || "-"}<br/>
-      <b>İlçe ID:</b> ${attributes.ILCEID || "-"}<br/>
-      <b>Mahalle ID:</b> ${attributes.MAHALLEID || "-"}<br/>
-    `;
-
-    const routeButton = document.createElement("button");
-    routeButton.className = "popup-route-btn";
-    routeButton.innerText = "Buraya Rota Al";
-
-    routeButton.addEventListener("click", async () => {
-      if (!selectedStartPoint) {
-        setInfo("Önce sol panelden 'Başlangıç Noktası Seç' butonuna basıp haritadan başlangıç seçmelisin.");
-        return;
-      }
-
-      await createRoute(
-        selectedStartPoint,
-        graphic.geometry,
-        attributes.ADI || "IETT Durağı"
-      );
-    });
-
-    container.appendChild(routeButton);
-
-    return container;
+          await createRoute(
+            selectedStartPoint,
+            graphic.geometry,
+            attributes.ADI || "IETT Durağı"
+          );
+        }
+      });
+    }
   }
-}
 });
 
 const routeLayer = new RouteLayer({
@@ -200,8 +179,7 @@ const nearestStopInfo = document.getElementById("nearestStopInfo");
 view.when(async () => {
   await iettLayer.when();
 
-  const totalQuery = iettLayer.createQuery();
-  totalQuery.where = "1=1";
+  const totalQuery = createLayerQuery(iettLayer, { where: DEFAULT_WHERE });
   totalStopCount = await iettLayer.queryFeatureCount(totalQuery);
 
   document.getElementById("totalStops").innerText = formatNumber(totalStopCount);
@@ -230,15 +208,15 @@ view.watch("extent", debounce(async () => {
 }, 400));
 
 toggleDirectionsBtn.addEventListener("click", () => {
-  const isHidden = directionsPanel.classList.contains("hidden");
+  const isVisible = togglePanel(directionsPanel, {
+    triggerBtn: toggleDirectionsBtn,
+    showText: "Rota Paneli",
+    hideText: "Paneli Kapat"
+  });
 
-  if (isHidden) {
-    directionsPanel.classList.remove("hidden");
-    toggleDirectionsBtn.innerText = "Paneli Kapat";
+  if (isVisible) {
     showStartPointMenu();
   } else {
-    directionsPanel.classList.add("hidden");
-    toggleDirectionsBtn.innerText = "Rota Paneli";
     isSelectingStartPoint = false;
     isSelectingRouteTarget = false;
   }
@@ -249,15 +227,15 @@ clearRouteBtn.addEventListener("click", () => {
 });
 
 toggleTableBtn.addEventListener("click", () => {
-  tableDrawer.classList.toggle("hidden");
-
-  toggleTableBtn.innerText = tableDrawer.classList.contains("hidden")
-    ? "Durak Tablosu"
-    : "Tabloyu Kapat";
+  togglePanel(tableDrawer, {
+    triggerBtn: toggleTableBtn,
+    showText: "Durak Tablosu",
+    hideText: "Tabloyu Kapat"
+  });
 });
 
 closeTableBtn.addEventListener("click", () => {
-  tableDrawer.classList.add("hidden");
+  togglePanel(tableDrawer, { show: false });
   toggleTableBtn.innerText = "Durak Tablosu";
 });
 
@@ -273,8 +251,7 @@ clearFilterBtn.addEventListener("click", async () => {
 
 setStartModeBtn.addEventListener("click", () => {
   isSelectingStartPoint = true;
-  setStartModeBtn.innerText = "Haritadan Başlangıç Seçiliyor...";
-  setStartModeBtn.disabled = true;
+  setButtonState(setStartModeBtn, { text: "Haritadan Başlangıç Seçiliyor...", disabled: true });
   setInfo("Haritada bir noktaya tıkla. Bu nokta rota başlangıcı olacak.");
 });
 
@@ -284,10 +261,7 @@ clearStartBtn.addEventListener("click", () => {
 });
 
 fitStopsBtn.addEventListener("click", async () => {
-  const query = iettLayer.createQuery();
-  query.where = currentWhere;
-  query.returnGeometry = true;
-
+  const query = createLayerQuery(iettLayer, { where: currentWhere, returnGeometry: true });
   const result = await iettLayer.queryExtent(query);
 
   if (result.extent) {
@@ -306,20 +280,19 @@ resetViewBtn.addEventListener("click", () => {
 });
 
 nearestStopBtn.addEventListener("click", () => {
-  nearestStopPanel.classList.remove("hidden");
+  togglePanel(nearestStopPanel, { show: true });
   nearestStopContent.style.display = "block";
   nearestStopInfo.style.display = "none";
   setInfo("En yakın durak bulmak için bir yöntem seç.");
 });
 
 closeNearestBtn.addEventListener("click", () => {
-  nearestStopPanel.classList.add("hidden");
+  togglePanel(nearestStopPanel, { show: false });
   isSelectingNearestFromMap = false;
 });
 
 useLocationNearestBtn.addEventListener("click", async () => {
-  useLocationNearestBtn.disabled = true;
-  useLocationNearestBtn.innerText = "Konum alınıyor...";
+  setButtonState(useLocationNearestBtn, { text: "Konum alınıyor...", disabled: true });
 
   const userPoint = await getUserLocationPoint();
 
@@ -332,14 +305,12 @@ useLocationNearestBtn.addEventListener("click", async () => {
     setInfo("Konum alınamadı. Haritadan nokta seç.");
   }
 
-  useLocationNearestBtn.disabled = false;
-  useLocationNearestBtn.innerText = "📍 Konumumu Kullan (GPS)";
+  setButtonState(useLocationNearestBtn, { text: "📍 Konumumu Kullan (GPS)", disabled: false });
 });
 
 selectFromMapNearestBtn.addEventListener("click", () => {
   isSelectingNearestFromMap = true;
-  selectFromMapNearestBtn.disabled = true;
-  selectFromMapNearestBtn.innerText = "Haritada nokta seçiliyor...";
+  setButtonState(selectFromMapNearestBtn, { text: "Haritada nokta seçiliyor...", disabled: true });
   setInfo("En yakın durağı bulmak için haritada bir nokta tıkla.");
 });
 
@@ -349,8 +320,7 @@ view.on("click", async (event) => {
       setInfo("Haritadan geçerli bir nokta seçilemedi.");
 
       isSelectingNearestFromMap = false;
-      selectFromMapNearestBtn.disabled = false;
-      selectFromMapNearestBtn.innerText = "🗺️ Haritadan Seç";
+      setButtonState(selectFromMapNearestBtn, { text: "🗺️ Haritadan Seç", disabled: false });
       return;
     }
 
@@ -363,8 +333,7 @@ view.on("click", async (event) => {
     }
 
     isSelectingNearestFromMap = false;
-    selectFromMapNearestBtn.disabled = false;
-    selectFromMapNearestBtn.innerText = "🗺️ Haritadan Seç";
+    setButtonState(selectFromMapNearestBtn, { text: "🗺️ Haritadan Seç", disabled: false });
     return;
   }
 
@@ -393,33 +362,22 @@ view.on("click", async (event) => {
     name: "Seçilen Nokta"
   };
 
-  const pointContainer = document.createElement("div");
-  pointContainer.style.lineHeight = "1.7";
+  const pointContainer = createCoordinatePopupContent({
+    longitude: event.mapPoint.longitude,
+    latitude: event.mapPoint.latitude,
+    onRouteClick: async () => {
+      if (!selectedStartPoint) {
+        setInfo("Önce başlangıç noktası seçmelisin.");
+        return;
+      }
 
-  pointContainer.innerHTML = `
-    <b>Koordinat:</b><br/>
-    X: ${event.mapPoint.longitude?.toFixed(6) || "-"}<br/>
-    Y: ${event.mapPoint.latitude?.toFixed(6) || "-"}<br/>
-  `;
-
-  const pointRouteButton = document.createElement("button");
-  pointRouteButton.className = "popup-route-btn";
-  pointRouteButton.innerText = "Buraya Rota Al";
-
-  pointRouteButton.addEventListener("click", async () => {
-    if (!selectedStartPoint) {
-      setInfo("Önce başlangıç noktası seçmelisin.");
-      return;
+      await createRoute(
+        selectedStartPoint,
+        event.mapPoint,
+        "Seçilen Nokta"
+      );
     }
-
-    await createRoute(
-      selectedStartPoint,
-      event.mapPoint,
-      "Seçilen Nokta"
-    );
   });
-
-  pointContainer.appendChild(pointRouteButton);
 
   view.popup.open({
     title: "Seçilen Nokta",
@@ -433,23 +391,23 @@ function applyZoomBasedRenderer() {
   const zoomStatus = document.getElementById("zoomStatus");
   const activeMode = document.getElementById("activeMode");
 
-  if (zoom < 12) {
+  zoomStatus.innerText = `Zoom ${zoom.toFixed(1)}`;
+
+  if (zoom < ZOOM_THRESHOLDS.HEATMAP_MAX) {
     iettLayer.renderer = heatmapRenderer;
     iettLayer.featureReduction = null;
     iettLayer.featureEffect = null;
     iettLayer.labelingInfo = null;
     iettLayer.labelsVisible = false;
 
-    zoomStatus.innerText = `Zoom ${zoom.toFixed(1)}`;
     activeMode.innerText = "Heatmap";
-  } else if (zoom >= 12 && zoom < 15) {
+  } else if (zoom < ZOOM_THRESHOLDS.CLUSTER_MAX) {
     iettLayer.renderer = pointRenderer;
     iettLayer.featureReduction = clusterConfig;
     iettLayer.featureEffect = null;
     iettLayer.labelingInfo = null;
     iettLayer.labelsVisible = false;
 
-    zoomStatus.innerText = `Zoom ${zoom.toFixed(1)}`;
     activeMode.innerText = "Cluster";
   } else {
     iettLayer.renderer = pointRenderer;
@@ -466,13 +424,24 @@ function applyZoomBasedRenderer() {
       excludedEffect: "opacity(25%) grayscale(80%)"
     };
 
-    zoomStatus.innerText = `Zoom ${zoom.toFixed(1)}`;
     activeMode.innerText = "Point + Label + Effect";
   }
 }
 
 async function applyTextFilter(value) {
-  currentWhere = buildStopFilter(value);
+  if (!value) {
+    currentWhere = DEFAULT_WHERE;
+  } else {
+    const safeValue = value.replaceAll("'", "''");
+
+    currentWhere = `
+      UPPER(ADI) LIKE UPPER('%${safeValue}%')
+      OR UPPER(DURAK_KODU) LIKE UPPER('%${safeValue}%')
+      OR UPPER(DURAK_TIPI) LIKE UPPER('%${safeValue}%')
+      OR UPPER(YON_BILGISI) LIKE UPPER('%${safeValue}%')
+      OR CAST(ILCEID AS VARCHAR(20)) LIKE '%${safeValue}%'
+    `;
+  }
 
   iettLayer.definitionExpression = currentWhere;
 
@@ -491,10 +460,11 @@ async function updateVisibleCountByExtent() {
     return;
   }
 
-  const query = iettLayer.createQuery();
-  query.where = currentWhere;
-  query.geometry = view.extent;
-  query.spatialRelationship = "intersects";
+  const query = createLayerQuery(iettLayer, {
+    where: currentWhere,
+    geometry: view.extent,
+    spatialRelationship: "intersects"
+  });
 
   try {
     const count = await iettLayer.queryFeatureCount(query);
@@ -505,37 +475,12 @@ async function updateVisibleCountByExtent() {
   }
 }
 
-function getUserLocationPoint() {
-  return new Promise((resolve) => {
-    if (!navigator.geolocation) {
-      resolve(null);
-      return;
-    }
-
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        resolve(
-          new Point({
-            longitude: position.coords.longitude,
-            latitude: position.coords.latitude,
-            spatialReference: { wkid: 4326 }
-          })
-        );
-      },
-      () => resolve(null),
-      {
-        enableHighAccuracy: true,
-        timeout: 10000
-      }
-    );
-  });
-}
-
 async function findNearestStop(userPoint) {
-  const query = iettLayer.createQuery();
-  query.where = currentWhere;
-  query.outFields = ["*"];
-  query.returnGeometry = true;
+  const query = createLayerQuery(iettLayer, {
+    where: currentWhere,
+    outFields: ["*"],
+    returnGeometry: true
+  });
 
   const result = await iettLayer.queryFeatures(query);
 
@@ -568,7 +513,7 @@ async function findNearestStop(userPoint) {
 async function createRoute(startPoint, endPoint, stopName) {
   await directionsWidget.when();
 
-  directionsPanel.classList.remove("hidden");
+  togglePanel(directionsPanel, { show: true });
   toggleDirectionsBtn.innerText = "Paneli Kapat";
 
   clearRoute(false);
@@ -603,6 +548,8 @@ async function createRoute(startPoint, endPoint, stopName) {
 }
 
 function clearRoute(showMessage = true) {
+  safeRemoveAll(directionsWidget.viewModel?.reset && null, "Directions reset");
+
   try {
     if (directionsWidget.viewModel && directionsWidget.viewModel.reset) {
       directionsWidget.viewModel.reset();
@@ -611,29 +558,9 @@ function clearRoute(showMessage = true) {
     console.warn("Directions reset çalışmadı:", error);
   }
 
-  try {
-    if (routeLayer.stops) {
-      routeLayer.stops.removeAll();
-    }
-  } catch (error) {
-    console.warn("Stops temizlenemedi:", error);
-  }
-
-  try {
-    if (routeLayer.directionLines) {
-      routeLayer.directionLines.removeAll();
-    }
-  } catch (error) {
-    console.warn("Direction lines temizlenemedi:", error);
-  }
-
-  try {
-    if (routeLayer.routes) {
-      routeLayer.routes.removeAll();
-    }
-  } catch (error) {
-    console.warn("Routes temizlenemedi:", error);
-  }
+  safeRemoveAll(routeLayer.stops, "Stops");
+  safeRemoveAll(routeLayer.directionLines, "Direction lines");
+  safeRemoveAll(routeLayer.routes, "Routes");
 
   hasActiveRoute = false;
   isSelectingRouteTarget = false;
@@ -662,10 +589,10 @@ function clearRoute(showMessage = true) {
 }
 
 function updateRouteButtonState() {
-  clearRouteBtn.disabled = !hasActiveRoute;
-  clearRouteBtn.innerText = hasActiveRoute
-    ? "Rotayı Temizle"
-    : "Temizlenecek Rota Yok";
+  setButtonState(clearRouteBtn, {
+    text: hasActiveRoute ? "Rotayı Temizle" : "Temizlenecek Rota Yok",
+    disabled: !hasActiveRoute
+  });
 }
 
 function setStartPoint(point) {
@@ -681,7 +608,7 @@ function setStartPoint(point) {
     symbol: {
       type: "simple-marker",
       style: "circle",
-      color: "#00E5FF",
+      color: START_POINT_COLOR,
       size: 14,
       outline: {
         color: "#ffffff",
@@ -708,9 +635,7 @@ function setStartPoint(point) {
 
   isSelectingRouteTarget = true;
 
-  setStartModeBtn.innerText = "Başlangıç Noktası Seç";
-  setStartModeBtn.disabled = false;
-
+  setButtonState(setStartModeBtn, { text: "Başlangıç Noktası Seç", disabled: false });
   setInfo("Başlangıç noktası seçildi. Şimdi hedef durağı veya noktayı tıkla.");
 }
 
@@ -724,8 +649,7 @@ function clearStartPoint() {
     selectedStartGraphic = null;
   }
 
-  setStartModeBtn.innerText = "Başlangıç Noktası Seç";
-  setStartModeBtn.disabled = false;
+  setButtonState(setStartModeBtn, { text: "Başlangıç Noktası Seç", disabled: false });
 
   if (!directionsPanel.classList.contains("hidden")) {
     showStartPointMenu();
@@ -821,22 +745,13 @@ function showNearestStopInfo(stop, userPoint) {
   document.getElementById("startRouteToNearestBtn").addEventListener("click", async () => {
     if (selectedStartPoint) {
       await createRoute(selectedStartPoint, stop.geometry, stop.attributes.ADI);
-      nearestStopPanel.classList.add("hidden");
+      togglePanel(nearestStopPanel, { show: false });
       setInfo(`${stop.attributes.ADI} durağına rota oluşturuldu.`);
     } else {
-      directionsPanel.classList.remove("hidden");
+      togglePanel(directionsPanel, { show: true });
       toggleDirectionsBtn.innerText = "Paneli Kapat";
       showStartPointMenu();
       setInfo("Önce başlangıç noktası seç.");
     }
   });
 }
-
-function setInfo(message) {
-  const info = document.getElementById("info");
-
-  if (info) {
-    info.innerText = message;
-  }
-}
-
