@@ -650,6 +650,7 @@ async function createRoute(startPoint, endPoint, stopName) {
   clearRoute(false);
 
   try {
+    routeLayer.stops.removeAll();
     routeLayer.stops.addMany([
       {
         name: "Başlangıç Noktası",
