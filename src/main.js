@@ -12,6 +12,9 @@ import TableTemplate from "@arcgis/core/widgets/FeatureTable/support/TableTempla
 import "@arcgis/map-components/dist/components/arcgis-search";
 import "@arcgis/map-components/dist/components/arcgis-directions";
 import "@arcgis/map-components/dist/components/arcgis-feature-table";
+import "@arcgis/map-components/dist/components/arcgis-basemap-gallery";
+import "@arcgis/map-components/dist/components/arcgis-scale-bar";
+import "@arcgis/map-components/dist/components/arcgis-legend";
 
 import { ISTANBUL_CENTER, START_POINT_COLOR, NEAREST_STOP_COLOR, USER_LOCATION_COLOR, ZOOM_THRESHOLDS, DEFAULT_WHERE } from "./config/constants.js";
 import { heatmapRenderer, pointRenderer, stopLabelingInfo, clusterConfig } from "./config/renderers.js";
@@ -150,6 +153,24 @@ searchEl.sources = [
 
 view.ui.add(searchEl, { position: "top-left" });
 
+const scaleBarEl = document.querySelector("arcgis-scale-bar");
+scaleBarEl.view = view;
+scaleBarEl.unit = "metric";
+view.ui.add(scaleBarEl, { position: "bottom-left" });
+
+const legendEl = document.querySelector("arcgis-legend");
+legendEl.view = view;
+
+const basemapGalleryEl = document.querySelector("arcgis-basemap-gallery");
+basemapGalleryEl.view = view;
+
+const basemapToggleBtn = document.getElementById("basemapToggleBtn");
+const basemapPanel = document.getElementById("basemapPanel");
+
+basemapToggleBtn.addEventListener("click", () => {
+  basemapPanel.classList.toggle("hidden");
+});
+
 directionsEl.view = view;
 directionsEl.layer = routeLayer;
 directionsEl.apiKey = esriConfig.apiKey;
@@ -190,6 +211,14 @@ const clearStartBtn = document.getElementById("clearStartBtn");
 const fitStopsBtn = document.getElementById("fitStopsBtn");
 const resetViewBtn = document.getElementById("resetViewBtn");
 
+const sidebarToggle = document.getElementById("sidebarToggle");
+const sidebar = document.getElementById("sidebar");
+
+sidebarToggle.addEventListener("click", () => {
+  sidebar.classList.toggle("collapsed");
+  sidebarToggle.innerText = sidebar.classList.contains("collapsed") ? "Paneli Aç" : "Paneli Kapat";
+});
+
 const nearestStopBtn = document.getElementById("nearestStopBtn");
 const nearestStopPanel = document.getElementById("nearestStopPanel");
 const closeNearestBtn = document.getElementById("closeNearestBtn");
@@ -197,6 +226,33 @@ const useLocationNearestBtn = document.getElementById("useLocationNearestBtn");
 const selectFromMapNearestBtn = document.getElementById("selectFromMapNearestBtn");
 const nearestStopContent = document.getElementById("nearestStopContent");
 const nearestStopInfo = document.getElementById("nearestStopInfo");
+
+const themeToggleBtn = document.getElementById("themeToggleBtn");
+let isDarkTheme = true;
+
+themeToggleBtn.addEventListener("click", () => {
+  isDarkTheme = !isDarkTheme;
+  if (isDarkTheme) {
+    map.basemap = "dark-gray-vector";
+    document.body.classList.remove("light-theme");
+    themeToggleBtn.innerText = "Açık Tema";
+  } else {
+    map.basemap = "gray-vector";
+    document.body.classList.add("light-theme");
+    themeToggleBtn.innerText = "Koyu Tema";
+  }
+});
+
+const districtSelect = document.getElementById("districtSelect");
+
+districtSelect.addEventListener("change", async () => {
+  const selectedDistrict = districtSelect.value;
+  if (selectedDistrict) {
+    await applyDistrictFilter(selectedDistrict);
+  } else {
+    await applyTextFilter("");
+  }
+});
 
 view.when(async () => {
   await iettLayer.when();
@@ -209,6 +265,8 @@ view.when(async () => {
   await updateVisibleCountByExtent();
   applyZoomBasedRenderer();
   updateRouteButtonState();
+  await loadDistrictOptions();
+  await updateStatistics();
 
   view.goTo({
     center: ISTANBUL_CENTER,
@@ -561,10 +619,112 @@ async function applyTextFilter(value) {
     console.error("Filtre sonrası durak sayısı güncellenemedi:", error);
   }
 
+  await updateStatistics();
+
   if (value) {
+    districtSelect.value = "";
     setInfo(`Filtre uygulandı: "${value}"`);
   } else {
     setInfo("Filtre temizlendi. Tüm duraklar gösteriliyor.");
+  }
+}
+
+async function loadDistrictOptions() {
+  try {
+    const query = createLayerQuery(iettLayer, {
+      where: DEFAULT_WHERE,
+      outFields: ["ILCEID"],
+      returnDistinctValues: true,
+      orderByFields: ["ILCEID"]
+    });
+    const result = await iettLayer.queryFeatures(query);
+    const districts = [...new Set(result.features.map(f => f.attributes.ILCEID))].sort((a, b) => Number(a) - Number(b));
+
+    districts.forEach(id => {
+      const option = document.createElement("option");
+      option.value = id;
+      option.textContent = `İlçe ${id}`;
+      districtSelect.appendChild(option);
+    });
+  } catch (error) {
+    console.warn("İlçe listesi yüklenemedi:", error);
+  }
+}
+
+async function applyDistrictFilter(districtId) {
+  currentWhere = `ILCEID = '${districtId}'`;
+  iettLayer.definitionExpression = currentWhere;
+  lastRendererMode = null;
+  applyZoomBasedRenderer();
+
+  try {
+    await updateVisibleCountByExtent();
+    await updateStatistics();
+
+    const query = iettLayer.createQuery();
+    query.where = currentWhere;
+    query.returnGeometry = true;
+    const result = await iettLayer.queryExtent(query);
+    if (result.extent) {
+      view.goTo(result.extent.expand(1.3));
+    }
+  } catch (error) {
+    console.error("İlçe filtresi uygulama hatası:", error);
+  }
+
+  setInfo(`İlçe ${districtId} filtresi uygulandı.`);
+}
+
+async function updateStatistics() {
+  try {
+    const typeQuery = createLayerQuery(iettLayer, {
+      where: currentWhere,
+      outFields: ["DURAK_TIPI"],
+      returnDistinctValues: true
+    });
+    const typeResult = await iettLayer.queryFeatures(typeQuery);
+    const typeMap = {};
+    typeResult.features.forEach(f => {
+      const t = f.attributes.DURAK_TIPI || "Bilinmiyor";
+      typeMap[t] = (typeMap[t] || 0) + 1;
+    });
+
+    const countQuery = createLayerQuery(iettLayer, { where: currentWhere });
+    const filteredCount = await iettLayer.queryFeatureCount(countQuery);
+
+    const districtQuery = createLayerQuery(iettLayer, {
+      where: currentWhere,
+      outFields: ["ILCEID"],
+      returnDistinctValues: true
+    });
+    const districtResult = await iettLayer.queryFeatures(districtQuery);
+    const districtCount = new Set(districtResult.features.map(f => f.attributes.ILCEID)).size;
+
+    const statsContainer = document.getElementById("statsContent");
+    statsContainer.innerHTML = "";
+
+    const addStat = (label, value) => {
+      const row = document.createElement("div");
+      row.className = "stat-row";
+      const labelEl = document.createElement("span");
+      labelEl.textContent = label;
+      const valueEl = document.createElement("strong");
+      valueEl.textContent = value;
+      row.appendChild(labelEl);
+      row.appendChild(valueEl);
+      statsContainer.appendChild(row);
+    };
+
+    addStat("Filtrelenmiş Durak", formatNumber(filteredCount));
+    addStat("İlçe Sayısı", districtCount);
+    addStat("Durak Tipi Sayısı", Object.keys(typeMap).length);
+
+    const topTypes = Object.entries(typeMap).sort((a, b) => b[1] - a[1]).slice(0, 3);
+    topTypes.forEach(([type, count]) => {
+      addStat(type, formatNumber(count));
+    });
+  } catch (error) {
+    console.warn("İstatistikler güncellenemedi:", error);
   }
 }
 
