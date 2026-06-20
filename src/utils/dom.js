@@ -1,4 +1,17 @@
 /**
+ * Escape HTML entities to prevent XSS when interpolating into innerHTML.
+ */
+export function escapeHtml(str) {
+  if (str == null) return "-";
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+/**
  * Display a status message in the info panel.
  */
 export function setInfo(message) {

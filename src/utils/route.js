@@ -1,3 +1,5 @@
+import { escapeHtml } from "./dom.js";
+
 /**
  * Safely call removeAll() on a route layer collection with error handling.
  * Replaces the repetitive try/catch blocks in clearRoute().
@@ -22,13 +24,13 @@ export function createPopupContent({ attributes, onRouteClick }) {
 
   if (attributes) {
     container.innerHTML = `
-      <b>Durak Adı:</b> ${attributes.ADI || "-"}<br/>
-      <b>Durak Kodu:</b> ${attributes.DURAK_KODU || "-"}<br/>
-      <b>Durak Tipi:</b> ${attributes.DURAK_TIPI || "-"}<br/>
-      <b>Yön Bilgisi:</b> ${attributes.YON_BILGISI || "-"}<br/>
-      <b>Durumu:</b> ${attributes.DURUMU || "-"}<br/>
-      <b>İlçe ID:</b> ${attributes.ILCEID || "-"}<br/>
-      <b>Mahalle ID:</b> ${attributes.MAHALLEID || "-"}<br/>
+      <b>Durak Adı:</b> ${escapeHtml(attributes.ADI)}<br/>
+      <b>Durak Kodu:</b> ${escapeHtml(attributes.DURAK_KODU)}<br/>
+      <b>Durak Tipi:</b> ${escapeHtml(attributes.DURAK_TIPI)}<br/>
+      <b>Yön Bilgisi:</b> ${escapeHtml(attributes.YON_BILGISI)}<br/>
+      <b>Durumu:</b> ${escapeHtml(attributes.DURUMU)}<br/>
+      <b>İlçe ID:</b> ${escapeHtml(attributes.ILCEID)}<br/>
+      <b>Mahalle ID:</b> ${escapeHtml(attributes.MAHALLEID)}<br/>
     `;
   }
 

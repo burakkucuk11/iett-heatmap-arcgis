@@ -12,7 +12,7 @@ import esriConfig from "@arcgis/core/config.js";
 
 import { ISTANBUL_CENTER, START_POINT_COLOR, ZOOM_THRESHOLDS, DEFAULT_WHERE } from "./config/constants.js";
 import { heatmapRenderer, pointRenderer, stopLabelingInfo, clusterConfig } from "./config/renderers.js";
-import { setInfo, formatNumber, debounce, setButtonState, togglePanel } from "./utils/dom.js";
+import { escapeHtml, setInfo, formatNumber, debounce, setButtonState, togglePanel } from "./utils/dom.js";
 import { haversineDistanceMeters, getUserLocationPoint, createLayerQuery } from "./utils/geo.js";
 import { safeRemoveAll, createPopupContent, createCoordinatePopupContent } from "./utils/route.js";
 
@@ -75,6 +75,7 @@ popupTemplate: {
 
     return container;
   }
+}
 });
 
 const routeLayer = new RouteLayer({
@@ -874,55 +875,4 @@ function showNearestStopInfo(stop, userPoint) {
   });
 }
 
-function haversineDistanceMeters(lon1, lat1, lon2, lat2) {
-  const radius = 6371000;
-  const toRad = (value) => (value * Math.PI) / 180;
 
-  const dLat = toRad(lat2 - lat1);
-  const dLon = toRad(lon2 - lon1);
-
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(toRad(lat1)) *
-      Math.cos(toRad(lat2)) *
-      Math.sin(dLon / 2) *
-      Math.sin(dLon / 2);
-
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-
-  return radius * c;
-}
-
-function escapeHtml(str) {
-  if (str == null) return "-";
-  return String(str)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
-
-function setInfo(message) {
-  const info = document.getElementById("info");
-
-  if (info) {
-    info.innerText = message;
-  }
-}
-
-function formatNumber(value) {
-  return new Intl.NumberFormat("tr-TR").format(value);
-}
-
-function debounce(callback, delay) {
-  let timeout;
-
-  return (...args) => {
-    clearTimeout(timeout);
-
-    timeout = setTimeout(() => {
-      callback(...args);
-    }, delay);
-  };
-}

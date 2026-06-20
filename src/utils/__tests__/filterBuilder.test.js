@@ -45,8 +45,20 @@ describe("buildStopFilter", () => {
     expect(orCount).toBe(4);
   });
 
-  it("handles special characters in search", () => {
+  it("strips SQL wildcards and metacharacters from search", () => {
     const result = buildStopFilter("test%value");
-    expect(result).toContain("test%value");
+    expect(result).toContain("testvalue");
+    expect(result).not.toContain("test%value");
+  });
+
+  it("escapes underscores in search", () => {
+    const result = buildStopFilter("test_value");
+    expect(result).toContain("test\\_value");
+  });
+
+  it("strips semicolons and dashes", () => {
+    const result = buildStopFilter("test;--DROP");
+    expect(result).not.toContain(";");
+    expect(result).not.toContain("--");
   });
 });
