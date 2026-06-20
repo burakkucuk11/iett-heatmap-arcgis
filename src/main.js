@@ -320,7 +320,11 @@ view.watch("zoom", () => {
 });
 
 view.watch("extent", debounce(async () => {
-  await updateVisibleCountByExtent();
+  try {
+    await updateVisibleCountByExtent();
+  } catch (error) {
+    console.error("Extent değişikliğinde durak sayısı güncellenemedi:", error);
+  }
 }, 400));
 
 toggleDirectionsBtn.addEventListener("click", () => {
@@ -378,15 +382,22 @@ clearStartBtn.addEventListener("click", () => {
 });
 
 fitStopsBtn.addEventListener("click", async () => {
-  const query = iettLayer.createQuery();
-  query.where = currentWhere;
-  query.returnGeometry = true;
+  try {
+    const query = iettLayer.createQuery();
+    query.where = currentWhere;
+    query.returnGeometry = true;
 
-  const result = await iettLayer.queryExtent(query);
+    const result = await iettLayer.queryExtent(query);
 
-  if (result.extent) {
-    view.goTo(result.extent.expand(1.18));
-    setInfo("Gösterilen durakların tamamına zoom yapıldı.");
+    if (result.extent) {
+      view.goTo(result.extent.expand(1.18));
+      setInfo("Gösterilen durakların tamamına zoom yapıldı.");
+    } else {
+      setInfo("Mevcut filtre için durak alanı bulunamadı.");
+    }
+  } catch (error) {
+    console.error("Durak extent sorgusu başarısız:", error);
+    setInfo("Durak alanı hesaplanamadı. Lütfen tekrar deneyin.");
   }
 });
 
@@ -415,15 +426,20 @@ useLocationNearestBtn.addEventListener("click", async () => {
   useLocationNearestBtn.disabled = true;
   useLocationNearestBtn.innerText = "Konum alınıyor...";
 
-  const userPoint = await getUserLocationPoint();
+  try {
+    const userPoint = await getUserLocationPoint();
 
-  if (userPoint) {
-    const nearest = await findNearestStop(userPoint);
-    if (nearest) {
-      showNearestStopInfo(nearest, userPoint);
+    if (userPoint) {
+      const nearest = await findNearestStop(userPoint);
+      if (nearest) {
+        showNearestStopInfo(nearest, userPoint);
+      }
+    } else {
+      setInfo("Konum alınamadı. Haritadan nokta seç.");
     }
-  } else {
-    setInfo("Konum alınamadı. Haritadan nokta seç.");
+  } catch (error) {
+    console.error("En yakın durak aranırken hata:", error);
+    setInfo("En yakın durak aranırken bir hata oluştu.");
   }
 
   useLocationNearestBtn.disabled = false;
@@ -438,9 +454,24 @@ selectFromMapNearestBtn.addEventListener("click", () => {
 });
 
 view.on("click", async (event) => {
-  if (isSelectingNearestFromMap) {
-    if (!event.mapPoint?.longitude || !event.mapPoint?.latitude) {
-      setInfo("Haritadan geçerli bir nokta seçilemedi.");
+  try {
+    if (isSelectingNearestFromMap) {
+      if (!event.mapPoint?.longitude || !event.mapPoint?.latitude) {
+        setInfo("Haritadan geçerli bir nokta seçilemedi.");
+
+        isSelectingNearestFromMap = false;
+        selectFromMapNearestBtn.disabled = false;
+        selectFromMapNearestBtn.innerText = "🗺️ Haritadan Seç";
+        return;
+      }
+
+      const nearest = await findNearestStop(event.mapPoint);
+
+      if (nearest) {
+        showNearestStopInfo(nearest, event.mapPoint);
+      } else {
+        setInfo("Seçilen noktaya yakın durak bulunamadı.");
+      }
 
       isSelectingNearestFromMap = false;
       selectFromMapNearestBtn.disabled = false;
@@ -448,78 +479,68 @@ view.on("click", async (event) => {
       return;
     }
 
-    const nearest = await findNearestStop(event.mapPoint);
-
-    if (nearest) {
-      showNearestStopInfo(nearest, event.mapPoint);
-    } else {
-      setInfo("Seçilen noktaya yakın durak bulunamadı.");
-    }
-
-    isSelectingNearestFromMap = false;
-    selectFromMapNearestBtn.disabled = false;
-    selectFromMapNearestBtn.innerText = "🗺️ Haritadan Seç";
-    return;
-  }
-
-  if (isSelectingStartPoint) {
-    setStartPoint(event.mapPoint);
-    return;
-  }
-
-  const hit = await view.hitTest(event);
-
-  const stopGraphic = hit.results.find((result) => {
-    return result.graphic && result.graphic.layer === iettLayer;
-  })?.graphic;
-
-  if (stopGraphic) {
-    pendingRouteTarget = {
-      geometry: stopGraphic.geometry,
-      name: stopGraphic.attributes?.ADI || "IETT Durağı"
-    };
-
-    return;
-  }
-
-  pendingRouteTarget = {
-    geometry: event.mapPoint,
-    name: "Seçilen Nokta"
-  };
-
-  const pointContainer = document.createElement("div");
-  pointContainer.style.lineHeight = "1.7";
-
-  pointContainer.innerHTML = `
-    <b>Koordinat:</b><br/>
-    X: ${event.mapPoint.longitude?.toFixed(6) || "-"}<br/>
-    Y: ${event.mapPoint.latitude?.toFixed(6) || "-"}<br/>
-  `;
-
-  const pointRouteButton = document.createElement("button");
-  pointRouteButton.className = "popup-route-btn";
-  pointRouteButton.innerText = "Buraya Rota Al";
-
-  pointRouteButton.addEventListener("click", async () => {
-    if (!selectedStartPoint) {
-      setInfo("Önce başlangıç noktası seçmelisin.");
+    if (isSelectingStartPoint) {
+      setStartPoint(event.mapPoint);
       return;
     }
 
-    await createRoute(
-      selectedStartPoint,
-      event.mapPoint,
-      "Seçilen Nokta"
-    );
-  });
+    const hit = await view.hitTest(event);
 
-  pointContainer.appendChild(pointRouteButton);
+    const stopGraphic = hit.results.find((result) => {
+      return result.graphic && result.graphic.layer === iettLayer;
+    })?.graphic;
 
-  view.popup.open({
-    title: "Seçilen Nokta",
-    content: pointContainer,
-    location: event.mapPoint
-  });
+    if (stopGraphic) {
+      pendingRouteTarget = {
+        geometry: stopGraphic.geometry,
+        name: stopGraphic.attributes?.ADI || "IETT Durağı"
+      };
+
+      return;
+    }
+
+    pendingRouteTarget = {
+      geometry: event.mapPoint,
+      name: "Seçilen Nokta"
+    };
+
+    const pointContainer = document.createElement("div");
+    pointContainer.style.lineHeight = "1.7";
+
+    pointContainer.innerHTML = `
+      <b>Koordinat:</b><br/>
+      X: ${event.mapPoint.longitude?.toFixed(6) || "-"}<br/>
+      Y: ${event.mapPoint.latitude?.toFixed(6) || "-"}<br/>
+    `;
+
+    const pointRouteButton = document.createElement("button");
+    pointRouteButton.className = "popup-route-btn";
+    pointRouteButton.innerText = "Buraya Rota Al";
+
+    pointRouteButton.addEventListener("click", async () => {
+      if (!selectedStartPoint) {
+        setInfo("Önce başlangıç noktası seçmelisin.");
+        return;
+      }
+
+      await createRoute(
+        selectedStartPoint,
+        event.mapPoint,
+        "Seçilen Nokta"
+      );
+    });
+
+    pointContainer.appendChild(pointRouteButton);
+
+    view.popup.open({
+      title: "Seçilen Nokta",
+      content: pointContainer,
+      location: event.mapPoint
+    });
+  } catch (error) {
+    console.error("Harita tıklama olayı işlenemedi:", error);
+    setInfo("İşlem sırasında bir hata oluştu. Lütfen tekrar deneyin.");
+  }
 });
 
 function applyZoomBasedRenderer() {
@@ -583,7 +604,12 @@ async function applyTextFilter(value) {
   iettLayer.definitionExpression = currentWhere;
 
   applyZoomBasedRenderer();
-  await updateVisibleCountByExtent();
+
+  try {
+    await updateVisibleCountByExtent();
+  } catch (error) {
+    console.error("Filtre sonrası durak sayısı güncellenemedi:", error);
+  }
 
   if (value) {
     setInfo(`Filtre uygulandı: "${value}"`);
@@ -614,6 +640,7 @@ async function updateVisibleCountByExtent() {
 function getUserLocationPoint() {
   return new Promise((resolve) => {
     if (!navigator.geolocation) {
+      console.warn("Geolocation API desteklenmiyor.");
       resolve(null);
       return;
     }
@@ -628,7 +655,10 @@ function getUserLocationPoint() {
           })
         );
       },
-      () => resolve(null),
+      (error) => {
+        console.warn("Konum alınamadı:", error.message, `(code: ${error.code})`);
+        resolve(null);
+      },
       {
         enableHighAccuracy: true,
         timeout: 10000
@@ -643,7 +673,19 @@ async function findNearestStop(userPoint) {
   query.outFields = ["*"];
   query.returnGeometry = true;
 
-  const result = await iettLayer.queryFeatures(query);
+  let result;
+  try {
+    result = await iettLayer.queryFeatures(query);
+  } catch (error) {
+    console.error("Durak sorgusu başarısız:", error);
+    setInfo("Durak verileri alınamadı. Lütfen tekrar deneyin.");
+    return null;
+  }
+
+  if (!result.features || result.features.length === 0) {
+    setInfo("Mevcut filtre için durak bulunamadı.");
+    return null;
+  }
 
   let nearest = null;
   let nearestDistance = Infinity;
@@ -672,23 +714,35 @@ async function findNearestStop(userPoint) {
 }
 
 async function createRoute(startPoint, endPoint, stopName) {
-  await directionsWidget.when();
+  try {
+    await directionsWidget.when();
+  } catch (error) {
+    console.error("Directions widget başlatılamadı:", error);
+    setInfo("Rota servisi başlatılamadı. Sayfa yenilenmeyi deneyin.");
+    return;
+  }
 
   directionsPanel.classList.remove("hidden");
   toggleDirectionsBtn.innerText = "Paneli Kapat";
 
   clearRoute(false);
 
-  routeLayer.stops.addMany([
-    {
-      name: "Başlangıç Noktası",
-      geometry: startPoint
-    },
-    {
-      name: stopName,
-      geometry: endPoint
-    }
-  ]);
+  try {
+    routeLayer.stops.addMany([
+      {
+        name: "Başlangıç Noktası",
+        geometry: startPoint
+      },
+      {
+        name: stopName,
+        geometry: endPoint
+      }
+    ]);
+  } catch (error) {
+    console.error("Rota noktaları eklenemedi:", error);
+    setInfo("Rota noktaları ayarlanamadı. Lütfen tekrar deneyin.");
+    return;
+  }
 
   try {
     await directionsWidget.viewModel.getDirections();
