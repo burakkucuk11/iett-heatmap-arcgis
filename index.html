@@ -118,7 +118,7 @@
             </p>
           </div>
 
-          <div id="directionsWidgetContainer"></div>
+          <arcgis-directions id="directionsWidgetContainer"></arcgis-directions>
           <div id="routeInfoPanel" class="route-info-panel"></div>
           <button id="clearRouteBtn" class="clear-route-btn" disabled>
             Rotayı Temizle
@@ -134,7 +134,7 @@
             <button id="closeTableBtn">Kapat</button>
           </div>
 
-          <div id="tableContainer"></div>
+          <arcgis-feature-table id="tableContainer"></arcgis-feature-table>
         </div>
         
         <div id="nearestStopPanel" class="floating-panel hidden">
@@ -164,6 +164,7 @@
       </main>
     </div>
 
+    <arcgis-search></arcgis-search>
     <script type="module" src="/src/main.js"></script>
   </body>
 </html>
