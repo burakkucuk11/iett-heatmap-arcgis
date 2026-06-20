@@ -17,7 +17,7 @@ import { ISTANBUL_CENTER, START_POINT_COLOR, NEAREST_STOP_COLOR, USER_LOCATION_C
 import { heatmapRenderer, pointRenderer, stopLabelingInfo, clusterConfig } from "./config/renderers.js";
 import { setInfo, formatNumber, debounce, setButtonState, togglePanel } from "./utils/dom.js";
 import { haversineDistanceMeters, getUserLocationPoint, createLayerQuery } from "./utils/geo.js";
-import { safeRemoveAll, createPopupContent, createCoordinatePopupContent } from "./utils/route.js";
+import { createPopupContent, createCoordinatePopupContent } from "./utils/route.js";
 
 // Note: VITE_ prefixed env vars are bundled into client JS.
 // Ensure this API key is scoped to required services only
@@ -100,7 +100,7 @@ const iettLayer = new GeoJSONLayer({
 }
 });
 
-const routeLayer = new RouteLayer({
+let routeLayer = new RouteLayer({
   title: "Rota"
 });
 
@@ -686,9 +686,10 @@ async function createRoute(startPoint, endPoint, stopName) {
 
 function clearRoute(showMessage = true) {
   try {
-    safeRemoveAll(routeLayer.stops, "Stops");
-    safeRemoveAll(routeLayer.directionLines, "Direction lines");
-    safeRemoveAll(routeLayer.routes, "Routes");
+    map.remove(routeLayer);
+    routeLayer = new RouteLayer({ title: "Rota" });
+    map.add(routeLayer);
+    directionsEl.layer = routeLayer;
   } catch (error) {
     console.warn("Rota temizleme sırasında hata:", error);
   }
