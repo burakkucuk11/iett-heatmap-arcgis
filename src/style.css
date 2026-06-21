@@ -389,6 +389,12 @@ button {
   display: flex;
   align-items: center;
   gap: 8px;
+  pointer-events: auto;
+}
+
+.topbar-right arcgis-search {
+  width: min(340px, 34vw);
+  min-width: 240px;
 }
 
 #zoomStatus,

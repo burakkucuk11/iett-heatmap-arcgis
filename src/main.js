@@ -130,7 +130,7 @@ const view = new MapView({
   }
 });
 
-const searchEl = document.querySelector("arcgis-search");
+const searchEl = document.getElementById("mapSearch");
 const directionsEl = document.querySelector("arcgis-directions");
 const featureTableEl = document.querySelector("arcgis-feature-table");
 
@@ -150,8 +150,6 @@ searchEl.sources = [
     minSuggestCharacters: 2
   }
 ];
-
-view.ui.add(searchEl, { position: "top-left" });
 
 const scaleBarEl = document.querySelector("arcgis-scale-bar");
 scaleBarEl.view = view;
